@@ -2,6 +2,9 @@ import {channelPlaylist, fetchPlaylist} from "./download"
 
 const MainManifest = '#EXTM3U\n#EXT-X-VERSION:4\n#EXT-X-INDEPENDENT-SEGMENTS\n#EXT-X-STREAM-INF:BANDWIDTH=1561904,AVERAGE-BANDWIDTH=1161845,FRAME-RATE=25.000,CODECS="avc1.64001E,mp4a.40.2",RESOLUTION=640x360\nbitrate0.m3u8\n#EXT-X-STREAM-INF:BANDWIDTH=3738192,AVERAGE-BANDWIDTH=2719428,FRAME-RATE=25.000,CODECS="avc1.64001F,mp4a.40.2",RESOLUTION=1280x720\nbitrate1.m3u8\n#EXT-X-STREAM-INF:BANDWIDTH=5162480,AVERAGE-BANDWIDTH=3733809,FRAME-RATE=25.000,CODECS="avc1.640028,mp4a.40.2",RESOLUTION=1920x1080\nbitrate2.m3u8'
 
+export default async function handler(req, res) {
+  enableCors(action)(req, res)
+}
 const enableCors = fn => async (req, res) => {
   res.setHeader('Access-Control-Allow-Credentials', true)
   res.setHeader('Access-Control-Allow-Origin', '*') // replace this your actual origin
@@ -12,7 +15,6 @@ const enableCors = fn => async (req, res) => {
     res.status(200).end()
     return
   }
-
   return await fn(req, res)
 }
 
@@ -28,14 +30,10 @@ const action = async (req, res) => {
   else res.status(404).send('Not found')
 }
 
-export default async function handler(req, res) {
-  enableCors(action)(req, res)
-}
-
 async function childManifest(channel, width) {
   let playlist = channelPlaylist[channel]
   const current = new Date().getTime()
-  console.log(new Date(current), channel, width, new Date(playlist?.endtime))
+  // console.log(new Date(current), channel, width, new Date(playlist?.endtime))
   if(playlist == undefined  || playlist.endtime < current+60000) {
     console.log(new Date(), channel, width,'Fetching playlist in realtime')
     playlist = await fetchPlaylist(channel)
