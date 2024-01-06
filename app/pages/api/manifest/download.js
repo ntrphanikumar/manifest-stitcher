@@ -41,7 +41,7 @@ async function processChildManifest(item, manifest, manifestUrl) {
 
     const segment = (seg, start, end) => {
         return {
-            uri: fullUri(manifestUrl, seg.uri),
+            uri: fullUri(manifestUrl, seg.uri, true),
             duration: seg.duration*1000,
             starttime: start,
             endtime: end
@@ -65,11 +65,14 @@ async function processChildManifest(item, manifest, manifestUrl) {
     }).filter(skipOldAndFarFutureSegments).concat([CONTENT_END])
 }
 
-function fullUri(parentUrl, uri) {
+function fullUri(parentUrl, uri, isSegment) {
     const mUrl = new URL(parentUrl)
     const mPrefix = mUrl.origin + mUrl.pathname.replace(mUrl.pathname.split("/").slice(-1)[0], '')
-    const fUrl = new URL((uri.startsWith("/"))?mUrl:(uri.startsWith("http")?'':mPrefix)+uri)
-    return (process.env.SEGMENT_HOST||fUrl.origin)+fUrl.pathname+fUrl.search
+    let fUrl = (uri.startsWith("/"))?mUrl:(uri.startsWith("http")?'':mPrefix)+uri
+    if(isSegment && process.env.SEGMENTS_HOST) {
+        fUrl = new URL(fUrl)
+        return process.env.SEGMENTS_HOST+fUrl.pathname+fUrl.search
+    } else return fUrl
 }
 
 async function downloadManifest(item, subUrl) {
