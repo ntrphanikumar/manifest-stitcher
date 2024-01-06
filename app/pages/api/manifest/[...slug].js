@@ -2,6 +2,7 @@ import {channelPlaylist, fetchPlaylist} from "./download"
 
 const MainManifest = '#EXTM3U\n#EXT-X-VERSION:4\n#EXT-X-INDEPENDENT-SEGMENTS\n#EXT-X-STREAM-INF:BANDWIDTH=1561904,AVERAGE-BANDWIDTH=1161845,FRAME-RATE=25.000,CODECS="avc1.64001E,mp4a.40.2",RESOLUTION=640x360\nbitrate0.m3u8\n#EXT-X-STREAM-INF:BANDWIDTH=3738192,AVERAGE-BANDWIDTH=2719428,FRAME-RATE=25.000,CODECS="avc1.64001F,mp4a.40.2",RESOLUTION=1280x720\nbitrate1.m3u8\n#EXT-X-STREAM-INF:BANDWIDTH=5162480,AVERAGE-BANDWIDTH=3733809,FRAME-RATE=25.000,CODECS="avc1.640028,mp4a.40.2",RESOLUTION=1920x1080\nbitrate2.m3u8'
 
+
 export default async function handler(req, res) {
   enableCors(action)(req, res)
 }
@@ -49,7 +50,7 @@ async function childManifest(channel, width) {
 function manifest(contents) {
   const currenttime = new Date().getTime()
   const heading = '#EXTM3U\n#EXT-X-INDEPENDENT-SEGMENTS\n#EXT-X-VERSION:3\n#EXT-X-TARGETDURATION:6,\n#EXT-X-MEDIA-SEQUENCE:'+(parseInt(currenttime/6000)-284078207)
-  const response = heading + contents.filter(c => c.endtime < currenttime+90000 && c.endtime >= currenttime).map(c => c.uri==='CONTENT_END'?'\n#EXT-X-DISCONTINUITY':'\n#EXTINF:'+parseInt(c.duration/1000)+',\n'+c.uri).join('')
+  const response = heading + contents.filter(c => c.endtime < currenttime+60000 && c.endtime >= currenttime).map(c => c.uri==='CONTENT_END'?'\n#EXT-X-DISCONTINUITY':'\n#EXTINF:'+parseInt(c.duration/1000)+',\n'+c.uri).join('')
   // console.log(response)
   return response
 }
