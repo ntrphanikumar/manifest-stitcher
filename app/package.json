@@ -8,9 +8,6 @@
     "lint": "next lint"
   },
   "dependencies": {
-    "@hookform/resolvers": "^2.9.6",
-    "@monaco-editor/react": "^4.4.5",
-    "@types/ua-parser-js": "^0.7.36",
     "axios": "^1.6.4",
     "collections": "^5.1.13",
     "deepmerge": "^4.3.0",
