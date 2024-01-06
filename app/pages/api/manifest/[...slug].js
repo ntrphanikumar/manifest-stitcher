@@ -49,7 +49,7 @@ async function childManifest(channel, width) {
 function manifest(contents) {
   const currenttime = new Date().getTime()
   const heading = '#EXTM3U\n#EXT-X-INDEPENDENT-SEGMENTS\n#EXT-X-VERSION:3\n#EXT-X-TARGETDURATION:6,\n#EXT-X-MEDIA-SEQUENCE:'+(parseInt(currenttime/6000)-284078207)
-  const response = heading + contents.filter(c => c.endtime < currenttime+60000 && c.endtime >= currenttime).map(c => c.uri==='CONTENT_END'?'\n#EXT-X-DISCONTINUITY':'\n#EXTINF:'+parseInt(c.duration/1000)+',\n'+c.uri).join('')
+  const response = heading + contents.filter(c => c.endtime < currenttime+90000 && c.endtime >= currenttime).map(c => c.uri==='CONTENT_END'?'\n#EXT-X-DISCONTINUITY':'\n#EXTINF:'+parseInt(c.duration/1000)+',\n'+c.uri).join('')
   // console.log(response)
   return response
 }
