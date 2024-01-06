@@ -71,19 +71,21 @@ const downloadManifest = async (item, subUrl) => {
                 }
             }
 
-            const BREAK = { uri: 'BREAK', duration: 0, starttime: item.endEPOC, endtime: item.endEPOC}
-            return segments.slice(startSegToSkip,startSegToSkip+segmentsToPick).map(s => {
-                start = end
-                end = Math.round(start + s.duration*1000)
-                return segment(s, start, end)
-            }).filter(s => {
+            const skipOldAndFarFutureSegments = (s) => {
                 if(s.endtime > item.endEPOC) {
                     return s.starttime < item.endEPOC
                 } else if(s.endtime <= item.endEPOC && s.endtime> item.starEPOC) {
                     return true
                 }
-                return false
-            }).concat([BREAK])
+                return false 
+            }
+
+            const CONTENT_END = { uri: 'CONTENT_END', duration: 0, starttime: item.endEPOC, endtime: item.endEPOC}
+            return segments.slice(startSegToSkip,startSegToSkip+segmentsToPick).map(s => {
+                start = end
+                end = Math.round(start + s.duration*1000)
+                return segment(s, start, end)
+            }).filter(skipOldAndFarFutureSegments).concat([CONTENT_END])
         }
     }).catch(error => {
         console.error(error)
