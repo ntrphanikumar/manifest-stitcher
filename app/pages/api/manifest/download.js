@@ -5,12 +5,12 @@ const HLS = require('hls-parser');
 
 export const channelPlaylist = {}
 
-export default async (req,res)=>{
-    const channel = '132'
-    if(channelPlaylist[channel] === undefined || channelPlaylist[channel][channelPlaylist[channel].length-1].endtime < new Date().getTime()+300000) 
-        fetchPlaylist(channel)
-    res.status(200).json(channelPlaylist[channel]);
-}
+// export default async (req,res)=>{
+//     const channel = '132'
+//     if(channelPlaylist[channel] === undefined || channelPlaylist[channel][channelPlaylist[channel].length-1].endtime < new Date().getTime()+300000) 
+//         fetchPlaylist(channel)
+//     res.status(200).json(channelPlaylist[channel]);
+// }
 
 export const fetchPlaylist = async (channel) => {
     const curatedPlaylist = await downloadPlaylist(channel)
@@ -61,16 +61,21 @@ const downloadManifest = async (item, subUrl) => {
             const segments = manifest.segments
             const startSegToSkip = parseInt(item.seekstartSecs/6)
             const segmentsToPick = parseInt((item.seekendSecs-item.seekstartSecs)/6)
-            
-            return segments.slice(startSegToSkip,startSegToSkip+segmentsToPick).map(s => {
-                start = end
-                end = Math.round(start + s.duration*1000)
+
+            const segment = (seg, start, end) => {
                 return {
-                    uri: fullUri(manifestUrl, s.uri),
-                    duration: s.duration*1000,
+                    uri: fullUri(manifestUrl, seg.uri),
+                    duration: seg.duration*1000,
                     starttime: start,
                     endtime: end
                 }
+            }
+
+            const BREAK = { uri: 'BREAK', duration: 0, starttime: item.endEPOC, endtime: item.endEPOC}
+            return segments.slice(startSegToSkip,startSegToSkip+segmentsToPick).map(s => {
+                start = end
+                end = Math.round(start + s.duration*1000)
+                return segment(s, start, end)
             }).filter(s => {
                 if(s.endtime > item.endEPOC) {
                     return s.starttime < item.endEPOC
@@ -78,7 +83,7 @@ const downloadManifest = async (item, subUrl) => {
                     return true
                 }
                 return false
-            })
+            }).concat([BREAK])
         }
     }).catch(error => {
         console.error(error)
