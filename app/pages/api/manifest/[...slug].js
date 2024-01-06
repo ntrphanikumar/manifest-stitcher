@@ -47,11 +47,19 @@ async function childManifest(channel, width) {
   return manifest(playlist.contents[width])
 }
 
+function segmentLine(c) {
+  const cline = `\n#EXTINF:${parseInt(c.duration/1000)}\n${c.uri}`
+  if(c.isStart && c.isAd) return `\n#EXT-X-CUE-OUT:${parseInt(c.adDuration/1000)}${cline}`
+  else if(c.isEnd && c.isAd) return `${cline}\n#EXT-X-CUE-IN\n#EXT-X-DISCONTINUITY`
+  else if(c.isEnd) return `${cline}\n#EXT-X-DISCONTINUITY`
+  else return cline
+}
+
 function manifest(contents) {
   const currenttime = new Date().getTime()
   const seq = parseInt((currenttime - 1704047400000)/contents[0].duration)
   const heading = '#EXTM3U\n#EXT-X-INDEPENDENT-SEGMENTS\n#EXT-X-VERSION:3\n#EXT-X-TARGETDURATION:6,\n#EXT-X-MEDIA-SEQUENCE:'+seq
-  const response = heading + contents.filter(c => c.endtime < currenttime+parseInt(process.env.MANIFEST_DURATION_IN_SECS)*1000 && c.endtime >= currenttime).map(c => c.uri==='CONTENT_END'?'\n#EXT-X-DISCONTINUITY':'\n#EXTINF:'+parseInt(c.duration/1000)+',\n'+c.uri).join('')+'\n'
+  const response = heading + contents.filter(c => c.endtime < currenttime+parseInt(process.env.MANIFEST_DURATION_IN_SECS)*1000 && c.endtime >= currenttime).map(segmentLine).join('')+'\n'
   // console.log(response)
   return response
 }

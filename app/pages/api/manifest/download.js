@@ -34,7 +34,7 @@ async function processMasterManifest(item, manifest, manifestUrl) {
 
 async function processChildManifest(item, manifest, manifestUrl) {
     let start = item.startEPOC, end = item.starEPOC, currenttime = new Date().getTime()
-    const segments = manifest.segments
+    let segments = manifest.segments
     const segmentLength = segments[0].duration
     const startSegToSkip = parseInt(item.seekstartSecs/segmentLength)
     const segmentsToPick = parseInt((item.seekendSecs-item.seekstartSecs)/segmentLength)
@@ -44,7 +44,11 @@ async function processChildManifest(item, manifest, manifestUrl) {
             uri: fullUri(manifestUrl, seg.uri, true),
             duration: seg.duration*1000,
             starttime: start,
-            endtime: end
+            endtime: end,
+            isAd: item.segid === '0',
+            adDuration: item.duration,
+            isStart: false,
+            isEnd: false
         }
     }
 
@@ -56,13 +60,24 @@ async function processChildManifest(item, manifest, manifestUrl) {
         }
         return false 
     }
-
-    const CONTENT_END = { uri: 'CONTENT_END', duration: 0, starttime: item.endEPOC, endtime: item.endEPOC}
-    return segments.slice(startSegToSkip,startSegToSkip+segmentsToPick).map(s => {
+      
+    segments = segments.slice(startSegToSkip,startSegToSkip+segmentsToPick).map(s => {
         start = end
         end = Math.round(start + s.duration*1000)
         return segment(s, start, end)
-    }).filter(skipOldAndFarFutureSegments).concat([CONTENT_END])
+    }).filter(skipOldAndFarFutureSegments)
+    segments[0].isStart = true
+    segments[segments.length-1].isEnd = true
+    return segments
+
+    // const CONTENT_END = { uri: 'CONTENT_END', duration: 0, starttime: item.endEPOC, endtime: item.endEPOC}
+    // const AD_START = { uri: 'AD_START', duration: 0, starttime: item.starEPOC, endtime: item.starEPOC}
+    // const AD_END = { uri: 'AD_END', duration: 0, starttime: item.endEPOC, endtime: item.endEPOC}
+    // return segments.slice(startSegToSkip,startSegToSkip+segmentsToPick).map(s => {
+    //     start = end
+    //     end = Math.round(start + s.duration*1000)
+    //     return segment(s, start, end)
+    // }).filter(skipOldAndFarFutureSegments).concat([CONTENT_END])
 }
 
 function fullUri(parentUrl, uri, isSegment) {
