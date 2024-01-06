@@ -67,17 +67,8 @@ async function processChildManifest(item, manifest, manifestUrl) {
 
 function fullUri(parentUrl, uri) {
     const mUrl = new URL(parentUrl)
-    const msplit = mUrl.pathname.split("/")
-    const mPrefix = mUrl.origin+mUrl.pathname.replace(msplit[msplit.length-1], '')
-    let vuri = uri
-    if(vuri.startsWith("http")) {
-
-    } else if (vuri.startsWith("/")) {
-        vuri = mUrl.origin+vuri
-    } else {
-        vuri = mPrefix+vuri
-    }
-    return vuri
+    const mPrefix = mUrl.origin + mUrl.pathname.replace(mUrl.pathname.split("/").slice(-1)[0], '')
+    return (uri.startsWith("/"))?mUrl:(uri.startsWith("http")?'':mPrefix)+uri
 }
 
 async function downloadManifest(item, subUrl) {
