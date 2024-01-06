@@ -3,13 +3,20 @@ import axios from 'axios';
 
 const HLS = require('hls-parser');
 
-const channelPlaylist = {}
+export const channelPlaylist = {}
 
 export default async (req,res)=>{
     const channel = '132'
+    if(channelPlaylist[channel] === undefined || channelPlaylist[channel][channelPlaylist[channel].length-1].endtime < new Date().getTime()+300000) 
+        fetchPlaylist(channel)
+    res.status(200).json(channelPlaylist[channel]);
+}
+
+export const fetchPlaylist = async (channel) => {
     const curatedPlaylist = await downloadPlaylist(channel)
-    const result = curatedPlaylist? await Promise.all(curatedPlaylist.map(item => downloadManifest(item.playbackUrl, item.starEPOC))): {}
-    res.status(200).json(result);
+    channelPlaylist[channel] = flatten(curatedPlaylist? await Promise.all(curatedPlaylist.map(item => downloadManifest(item))): {})
+    console.log(new Date(), channel, `Downloaded latest playlist with endtime ${new Date(channelPlaylist[channel].endtime)}`)
+    return channelPlaylist[channel]
 }
 
 function fullUri(parentUrl, uri) {
@@ -27,7 +34,9 @@ function fullUri(parentUrl, uri) {
     return vuri
 }
 
-const downloadManifest = async (manifestUrl, startTime) => {
+const downloadManifest = async (item, subUrl) => {
+    const manifestUrl = subUrl || item.playbackUrl
+    const startTime = item.starEPOC
     return await axios.get(manifestUrl).then(async response => {
         const manifest = HLS.parse(response.data)
         if(manifest.isMasterPlaylist) {
@@ -39,15 +48,21 @@ const downloadManifest = async (manifestUrl, startTime) => {
                 widths: variants.map(e => e.width),
                 contents: {}
             }
-            for (var i = 0; i < variants.length; i++) {
-                flatManifest.contents[variants[i].width] = await downloadManifest(variants[i].uri, startTime)
+
+            const result = await Promise.all(variants.map(v => downloadManifest(item, v.uri)))
+            for (var i = 0; i < flatManifest.widths.length; i++) {
+                flatManifest.contents[flatManifest.widths[i]] = result[i]
             }
-            flatManifest.duration = Math.round(flatManifest.contents[variants[0].width].map(e => e.duration).reduce((a,b)=>a+b))*1000
+            flatManifest.duration = Math.round(flatManifest.contents[variants[0].width].map(e => e.duration).reduce((a,b)=>a+b))
             flatManifest.endtime = startTime + flatManifest.duration
             return flatManifest
         } else {
-            let start = startTime, end = startTime
-            return manifest.segments.map(s => {
+            let start = startTime, end = startTime, currenttime = new Date().getTime()
+            const segments = manifest.segments
+            const startSegToSkip = parseInt(item.seekstartSecs/6)
+            const segmentsToPick = parseInt((item.seekendSecs-item.seekstartSecs)/6)
+            
+            return segments.slice(startSegToSkip,startSegToSkip+segmentsToPick).map(s => {
                 start = end
                 end = Math.round(start + s.duration*1000)
                 return {
@@ -56,6 +71,13 @@ const downloadManifest = async (manifestUrl, startTime) => {
                     starttime: start,
                     endtime: end
                 }
+            }).filter(s => {
+                if(s.endtime > item.endEPOC) {
+                    return s.starttime < item.endEPOC
+                } else if(s.endtime <= item.endEPOC && s.endtime> item.starEPOC) {
+                    return true
+                }
+                return false
             })
         }
     }).catch(error => {
@@ -68,10 +90,11 @@ const downloadPlaylist = async (channel) => {
     const FormData = require('form-data');
     let data = new FormData();
     data.append('cid', channel);
+    data.append('limit', 3);
     let config = {
         method: 'post',
         maxBodyLength: Infinity,
-        url: 'https://cpapi1.janya.video/v3/playout/getpplitemsprod',
+        url: 'https://cpapi1.janya.video/v4/playout/getpplitemsprod',
         headers: { 
           'X-Auth-Token': '25480b32-29bf-4783-8ecf-ba52fe5d4b0c'
         },
@@ -86,10 +109,25 @@ const normalizePlaylist = (playlist) => {
     modPlaylist.forEach(item => {
         item.starEPOC = item.starttime/item.fps * 1000
         item.endEPOC = item.endtime/item.fps * 1000
+        item.duration = item.segduration/item.fps * 1000
+        item.seekstartSecs = Math.round(item.seekstart/item.fps)
+        item.seekendSecs = Math.round(item.seekend/item.fps)
     })
-    const filteredItems = (modPlaylist[0].endEPOC - currenttime > 600000) ? [modPlaylist[0]] : modPlaylist.filter(item => (item.endEPOC - currenttime) <= 600000)
-    filteredItems.forEach(item => {
-        console.log(item.playbackUrl)
-    })
-    return filteredItems
+    // const filteredItems = (modPlaylist[0].endEPOC - currenttime) > 600000 ? [modPlaylist[0]] : modPlaylist.filter(item => (item.endEPOC - currenttime) <= 600000)
+    // return filteredItems
+    return modPlaylist
+}
+
+function flatten(playlist) {
+    const widthsSupported = [...new Set(playlist.map(p => p.widths).flat(1))].sort((a,b)=>parseInt(a)-parseInt(b))
+    const flatData = {
+        contents: {}
+    }
+    for(var idx=0; idx < widthsSupported.length; idx++) {
+        const width = widthsSupported[idx]
+        flatData.contents[width] = playlist.map(p => p.contents[width] || p.contents[Math.max(...p.widths.filter(w => w <= width))]).flat(1)
+    }
+    flatData.starttime = flatData.contents[widthsSupported[0]][0].starttime
+    flatData.endtime = Math.max(...flatData.contents[widthsSupported[0]].map(e => e.endtime))
+    return flatData
 }
