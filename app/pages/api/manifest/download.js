@@ -35,8 +35,9 @@ async function processMasterManifest(item, manifest, manifestUrl) {
 async function processChildManifest(item, manifest, manifestUrl) {
     let start = item.startEPOC, end = item.starEPOC, currenttime = new Date().getTime()
     const segments = manifest.segments
-    const startSegToSkip = parseInt(item.seekstartSecs/6)
-    const segmentsToPick = parseInt((item.seekendSecs-item.seekstartSecs)/6)
+    const segmentLength = segments[0].duration
+    const startSegToSkip = parseInt(item.seekstartSecs/segmentLength)
+    const segmentsToPick = parseInt((item.seekendSecs-item.seekstartSecs)/segmentLength)
 
     const segment = (seg, start, end) => {
         return {
