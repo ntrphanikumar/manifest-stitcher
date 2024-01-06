@@ -87,15 +87,15 @@ async function downloadPlaylist(channel) {
     let data = new FormData();
     data.append('cid', channel);
     data.append('limit', 3);
-    let config = {
-        method: 'post',
+
+    const config = {
+        method: process.env.PLAYLIST_FETCH_METHOD,
         maxBodyLength: Infinity,
-        url: 'https://cpapi1.janya.video/v4/playout/getpplitemsprod',
-        headers: { 
-          'X-Auth-Token': '25480b32-29bf-4783-8ecf-ba52fe5d4b0c'
-        },
+        url: process.env.PLAYLIST_FETCH_URL,
+        headers: {},
         data : data
     };
+    config.headers[process.env.PLAYLIST_FETCH_AUTH_HEADER_KEY] = process.env.PLAYLIST_FETCH_AUTH_HEADER_VALUE
     return await axios.request(config).then((response) => normalizePlaylist(response.data)).catch((error) => undefined);
 }
 
