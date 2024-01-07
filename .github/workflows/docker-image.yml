@@ -15,4 +15,4 @@ jobs:
     steps:
     - uses: actions/checkout@v3
     - name: Build the Docker image
-      run: docker build --tag ntrphanikumar/manifest-stitcher:$release_version -tag ntrphanikumar/manifest-stitcher:$build_version .
+      run: docker build . --file Dockerfile --tag ntrphanikumar/manifest-stitcher:1.0.0 --tag ntrphanikumar/manifest-stitcher:1.0.0.$(date +%s)
