@@ -25,7 +25,7 @@ const action = async (req, res) => {
   const channel = slug[0]
   const file = slug[1]
 
-  if(file === 'main.m3u8') res.send(MainManifest)
+  if(file === 'main.m3u8' || file === 'master.m3u8' || file === 'manifest.m3u8' || file === 'index.m3u8') res.send(MainManifest)
   else if(file === 'bitrate0.m3u8') res.send(await childManifest(channel, '640'))
   else if(file === 'bitrate1.m3u8') res.send(await childManifest(channel, '1280'))
   else if(file === 'bitrate2.m3u8') res.send(await childManifest(channel, '1920'))
