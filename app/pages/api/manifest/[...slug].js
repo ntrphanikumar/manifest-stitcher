@@ -58,7 +58,7 @@ function segmentLine(c) {
 function manifest(contents) {
   const currenttime = new Date().getTime()
   const seq = parseInt((currenttime - 1704047400000)/contents[0].duration)
-  const heading = '#EXTM3U\n#EXT-X-INDEPENDENT-SEGMENTS\n#EXT-X-VERSION:3\n#EXT-X-TARGETDURATION:6,\n#EXT-X-MEDIA-SEQUENCE:'+seq
+  const heading = '#EXTM3U\n#EXT-X-INDEPENDENT-SEGMENTS\n#EXT-X-VERSION:3\n#EXT-X-TARGETDURATION:6\n#EXT-X-MEDIA-SEQUENCE:'+seq
   const response = heading + contents.filter(c => c.endtime < currenttime+parseInt(process.env.MANIFEST_DURATION_IN_SECS)*1000 && c.endtime >= currenttime).map(segmentLine).join('')+'\n'
   // console.log(response)
   return response
