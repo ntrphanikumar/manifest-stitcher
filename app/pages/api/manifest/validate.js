@@ -19,7 +19,7 @@ function fullUri(parentUrl, uri, isSegment) {
 }
 
 async function downloadChildManifests(variants, payload) {
-    const result = await Promise.all(variants.map(async v => await downloadManifest(fullUri(payload.playbackUrl, v.uri), payload)))
+    const result = await Promise.all(variants.map(v => downloadManifest(fullUri(payload.playbackUrl, v.uri), payload)))
     const failure = result.map((r,idx) => {
         if(r.error) r.uri = variants[idx].uri
         return r
@@ -36,6 +36,7 @@ async function downloadChildManifests(variants, payload) {
 
 async function downloadManifest(url, payload) {
     try {
+        console.log(url)
         return await axios.get(url).then(async response => {
             return HLS.parse(response.data)
         }).catch(error => {
@@ -56,7 +57,7 @@ function validateDuration(manifest, payload) {
     }
 }
 
-function validateChunks(manifest, payload) {
+async function validateChunks(manifest, payload) {
     return 
 }
 
@@ -81,9 +82,10 @@ async function validate(payload) {
                 const durationFailed = validateDuration(childManifests[0], payload)
                 if(durationFailed) return durationFailed
                 if(payload.validateChunks) {
-                    childManifests.map(m => validateChunks(m, payload))
+                    const result = await Promise.all(childManifests.map(m => validateChunks(m, payload)))
+                    console.log(result)
                 }
-            } else if(payload.validateChunks) return validateChunks(manifest, payload)
+            } else if(payload.validateChunks) return await validateChunks(manifest, payload)
         } catch (e){
             return error(payload.playbackUrl, e.toString(), payload)
         }
