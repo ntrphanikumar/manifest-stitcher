@@ -3,31 +3,22 @@ import axios from 'axios';
 const HLS = require('hls-parser');
 
 export default async (req, res) => {
-    const payload = req.body
-    const channel = 54
-    const start = 1509448
-    const end = 1551880
-    // const end = 1511880
+    const { channel, start, end, playbackUrlPattern } = req.body
     const epgIds = Array.from({length: end-start+1}, (x, i) => i+start).reduce((resultArray, item, index) => { 
         const chunkIndex = Math.floor(index/1000)
         if(!resultArray[chunkIndex])  resultArray[chunkIndex] = []
         resultArray[chunkIndex].push(item)
         return resultArray
     }, []);
-    console.log(epgIds)
 
     const result = []
     for(var idx =0 ;idx<epgIds.length;idx++) {
         result.push({
             rangeIdx: idx,
-            result: (await Promise.all(epgIds[idx].map(epgid => `https://d3e44333nfcy2o.cloudfront.net/vod/ss/prod/${channel}/${epgid}__prod/index.m3u8`).map(async s => await sequence(s))))
+            result: (await Promise.all(epgIds[idx].map(epgid => playbackUrlPattern.replace('${channel}', channel).replace('${epgid}',epgid)).map(async s => await sequence(s))))
             .filter(r => r.failed === undefined || !r.reason.includes('status code 403')).filter(r => r.failed === true || r.seq.length > 1)
         })
     }
-
-    // const result = await sequence("https://d3e44333nfcy2o.cloudfront.net/vod/ss/prod/54/1509452__prod/index.m3u8")
-
-    
     res.status(200).json(result.map(r=>r.result).flat(1));
 };
 
@@ -38,7 +29,7 @@ async function sequence(parentUrl) {
         const childManifests = manifest.variants.filter(v=>!v.isIFrameOnly).map(v => v.uri).concat(manifest.source.split('\n').filter(p => p.startsWith('#EXT-X-IMAGE-STREAM-INF')).map(e => e.split('URI=')[1].split("\"")[1]))
         return (await Promise.all(childManifests.map(v => downloadManifest(fullUri(parentUrl, v))))).map((m, idx) => {
             return {
-                uri: childManifests[idx],
+                uri: {uri:childManifests[idx], segments: m.segments.length, firstSeg: m.segments[0].uri, lastSeg: m.segments.slice(-1)[0].uri},
                 seq: m.mediaSequenceBase
             }
         }).reduce((a,b)=> {
