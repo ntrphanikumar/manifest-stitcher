@@ -1,5 +1,5 @@
 FROM yobasystems/alpine-docker:x86_64
-RUN apk add --update npm
+RUN apk add --update npm ffmpeg
 COPY app /opt/app
 WORKDIR /opt/app
 RUN rm -rf node_modules | rm -rf package-lock.json
