@@ -2,14 +2,47 @@ import axios from 'axios';
 
 const HLS = require('hls-parser');
 
+const fs = require('fs');
+const dir = __dirname
+
 export default async (req, res) => {
-    const { channel, start, end, playbackUrlPattern } = req.body
-    const epgIds = Array.from({length: end-start+1}, (x, i) => i+start).reduce((resultArray, item, index) => { 
+    const { channel, start, end, playbackUrlPattern, channelStart, channelEnd, writeToFile } = req.body
+
+    let channelIds = []
+    if(channelStart !== undefined && channelEnd !== undefined) channelIds = range(channelStart, channelEnd).flat(1)
+    else if(channel !== undefined) channelIds = [channel]
+    else res.start(400).json({reason: 'Channel or range not specified'})
+
+    // console.log(channelIds)
+
+    const finalResult = {}
+    for(var idx =0; idx < channelIds.length;idx++) {
+        const result = await channelResult(channelIds[idx], start, end, playbackUrlPattern)
+        if(writeToFile){
+            fs.writeFile(`${dir}/${channelIds[idx]}.json`, JSON.stringify(result), err => {
+            if (err) {
+                console.error(err);
+            }
+            });
+        } else {
+            finalResult[channelIds[idx]] = result
+        }
+    }
+
+    res.status(200).json(finalResult);
+};
+
+function range(start, end) {
+    return Array.from({length: end-start+1}, (x, i) => i+start).reduce((resultArray, item, index) => { 
         const chunkIndex = Math.floor(index/1000)
         if(!resultArray[chunkIndex])  resultArray[chunkIndex] = []
         resultArray[chunkIndex].push(item)
         return resultArray
     }, []);
+}
+
+async function channelResult(channel, start, end, playbackUrlPattern) {
+    const epgIds = range(start, end)
 
     const result = []
     for(var idx =0 ;idx<epgIds.length;idx++) {
@@ -19,8 +52,8 @@ export default async (req, res) => {
             .filter(r => r.failed === undefined || !r.reason.includes('status code 403')).filter(r => r.failed === true || r.seq.length > 1)
         })
     }
-    res.status(200).json(result.map(r=>r.result).flat(1));
-};
+    return result.map(r=>r.result).flat(1)
+}
 
 async function sequence(parentUrl) {
     try {
