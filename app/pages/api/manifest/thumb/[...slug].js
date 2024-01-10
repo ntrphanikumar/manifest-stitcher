@@ -19,25 +19,34 @@ const enableCors = fn => async (req, res) => {
 
 const fs = require('fs');
 const path = require('path');
-// const dir = path.join(__dirname, 'generated');
-const dir = __dirname;
+const dir = path.join(__dirname, 'thumbnails');
 const { exec } = require("child_process");
 
 
 const TSH=s=>{for(var i=0,h=9;i<s.length;)h=Math.imul(h^s.charCodeAt(i++),9**9);return h^h>>>9}
 
+exec(`mkdir ${dir}`)
+setInterval(() => {
+  const command = `find ${dir} -maxdepth 1 -mmin +5 -type f  -exec rm -fv {} \\;`
+  console.log(new Date(),'Removing files older than 5 mins', command)
+  exec(command, (error, stderr, stdout) => {
+    console.log(error,stderr,stdout)
+  })
+}, 60000);
+
 const action = async (req, res) => {
   try {
-    const {manifestUrl, sec} = getManifestUrl(req)
+    const {manifestUrl, s3StorageKey, sec} = getManifestUrl(req)
+    console.log(manifestUrl, s3StorageKey, sec)
     const {segmentUrl, seekSecs} = await getThumbnailSegmentWithSeekSecs(manifestUrl, sec)
     const thumbnail_file = `${dir}/${TSH(segmentUrl)}_${sec}.jpg`
     const command = `rm ${thumbnail_file} | ffmpeg -i ${segmentUrl} -ss ${seekSecs} -frames:v 1 ${thumbnail_file}`
-    console.log(command)
     exec(command, (error, stderr, stdout) => {
       try {
         if (error)  throw error
         else if (stderr) throw stderr
         else {
+          uploadToS3(thumbnail_file, s3StorageKey)
           const s = fs.createReadStream(thumbnail_file);
           s.on('open', function () {
               res.setHeader('Content-Type', 'image/jpeg');
@@ -59,17 +68,48 @@ const action = async (req, res) => {
   }
 }
 
+const { Upload } = require("@aws-sdk/lib-storage");
+const { S3Client, S3, ListBucketInventoryConfigurationsOutputFilterSensitiveLog } = require("@aws-sdk/client-s3");
+function uploadToS3(thumbnail_file, s3StorageKey) {
+  try {
+    new Upload({
+      client: new S3Client({
+          credentials: {
+              accessKeyId: process.env.THUMBNAIL_S3_ACCESS_KEY,
+              secretAccessKey: process.env.THUMBNAIL_S3_SECRET_KEY
+          },
+          region: process.env.THUMBNAIL_S3_REGION
+      }),
+      params: {
+          Bucket: process.env.THUMBNAIL_S3_BUCKET,
+          Key: s3StorageKey,
+          Body: fs.createReadStream(thumbnail_file)
+      },
+      tags: [], // optional tags
+      queueSize: 4, // optional concurrency configuration
+      partSize: 1024 * 1024 * 5, // optional size of each part, in bytes, at least 5MB
+      leavePartsOnError: false, // optional manually handle dropped parts
+    }).done()
+  } catch(e) {
+    console.log(`Failed to upload ${thumbnail_file} to s3`, e)
+  }
+}
+
 function getManifestUrl(req) {
   const { slug } = req.query
-  if(slug[0] === 'enc') {
-    return {manifestUrl: ['https://videographond.akamaized.net'].concat(slug.slice(0, slug.length-3)).concat(['master.m3u8']).join('/'), sec: parseInt(slug.slice(-1)[0].replace('.jpg', ''))}
+  if(slug[0] === process.env.THUMBNAIL_VOD_PREFIX) {
+    return {
+      manifestUrl: [process.env.THUMBNAIL_VOD_MANIFEST_HOST].concat(slug.slice(0, slug.length-3)).concat([process.env.THUMBNAIL_VOD_MASTER_MANIFEST]).join('/'),
+      s3StorageKey: slug.slice(0, slug.length-3).concat(slug.slice(-1)[0]).join('/'),
+      sec: parseInt(slug.slice(-1)[0].replace('.jpg', ''))
+    }
   }
   return {manifestUrl: 'https://videographond.akamaized.net/enc/80b46fbb-0e8a-4647-a9f4-9510840190bf/348fd6ca-d9fe-4c8a-8963-c779d73a7675/fst/44111/master.m3u8', sec: 4}
 }
 
 async function getThumbnailSegmentWithSeekSecs(manifestUrl, sec) {
   const manifest = await downloadManifest(manifestUrl)
-  const firstChildManifest = manifest.variants.filter(v=>!v.isIFrameOnly).map(v => fullUri(manifestUrl, v.uri))[0]
+  const firstChildManifest = manifest.variants.filter(v=>!v.isIFrameOnly).map(v => fullUri(manifestUrl, v.uri)).slice(-1)[0]
   const childManifest = await downloadManifest(firstChildManifest)
   for(var idx=0, elapsedDuration=0; idx<childManifest.segments.length;idx++) {
     if(elapsedDuration + childManifest.segments[idx].duration < sec) {
