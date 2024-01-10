@@ -115,7 +115,7 @@ function getManifestUrl(req) {
     }
   } else if(slug[1] === process.env.THUMBNAIL_VOD_PREFIX && slug[0].indexOf('x') > -1) {
     return {
-      thumborUrl: `http://thumbor:8888/unsafe/${slug[0]}/http://dashboard:3000/${slug.slice(1).join('/')}`
+      thumborUrl: `http://thumbor:8888/unsafe/${slug[0]}/http://dashboard:3000/api/manifest/thumb/${slug.slice(1).join('/')}`
     }
   } else {
     console.log(new Date(), 'Non vod thumbnail request', slug)
