@@ -41,10 +41,11 @@ function range(start, end) {
     }, []);
 }
 
-async function channelResult(channel, start, end, playbackUrlPattern) {
+export async function channelResult(channel, start, end, playbackUrlPattern) {
     const epgIds = range(start, end)
-
+    // console.log(epgIds)
     const result = []
+    // return result
     for(var idx =0 ;idx<epgIds.length;idx++) {
         result.push({
             rangeIdx: idx,
@@ -52,7 +53,24 @@ async function channelResult(channel, start, end, playbackUrlPattern) {
             .filter(r => r.failed === undefined || !r.reason.includes('status code 403')).filter(r => r.failed === true || r.seq.length > 1)
         })
     }
-    return result.map(r=>r.result).flat(1)
+    const re = result.map(r=>r.result).flat(1)
+    // console.log(channel, 'channelResult', re)
+    return re
+}
+
+export async function channelManifests(channel, start, end, playbackUrlPattern) {
+    const epgIds = range(start, end)
+    // console.log(epgIds)
+    const result = []
+    // return result
+    for(var idx =0 ;idx<epgIds.length;idx++) {
+        result.push({
+            rangeIdx: idx,
+            result: (await Promise.all(epgIds[idx].map(epgid => playbackUrlPattern.replace('${channel}', channel).replace('${epgid}',epgid)).map(async s => await onlySequences(s)))).flat(1)
+        })
+    }
+    const re = result.map(r=>r.result).flat(1)
+    return re
 }
 
 async function sequence(parentUrl) {
@@ -62,7 +80,7 @@ async function sequence(parentUrl) {
         const childManifests = manifest.variants.filter(v=>!v.isIFrameOnly).map(v => v.uri).concat(manifest.source.split('\n').filter(p => p.startsWith('#EXT-X-IMAGE-STREAM-INF')).map(e => e.split('URI=')[1].split("\"")[1]))
         return (await Promise.all(childManifests.map(v => downloadManifest(fullUri(parentUrl, v))))).map((m, idx) => {
             return {
-                uri: {uri:childManifests[idx], segments: m.segments.length, firstSeg: m.segments[0].uri, lastSeg: m.segments.slice(-1)[0].uri},
+                uri: {uri:childManifests[idx], fullUri: fullUri(parentUrl, childManifests[idx]), source: m.source, segments: m.segments.length, firstSeg: m.segments[0].uri, lastSeg: m.segments.slice(-1)[0].uri},
                 seq: m.mediaSequenceBase
             }
         }).reduce((a,b)=> {
@@ -74,6 +92,18 @@ async function sequence(parentUrl) {
         return error(parentUrl, e.toString())
     }
 }
+
+async function onlySequences(parentUrl) {
+    try {
+        const manifest = await downloadManifest(parentUrl)
+        if(manifest.failed === true) return []
+        const childManifests = manifest.variants.filter(v=>!v.isIFrameOnly).map(v => v.uri).concat(manifest.source.split('\n').filter(p => p.startsWith('#EXT-X-IMAGE-STREAM-INF')).map(e => e.split('URI=')[1].split("\"")[1]))
+        return childManifests.map(r => fullUri(parentUrl, r)) 
+    } catch (e) {
+        return []
+    }
+}
+
 
 function fullUri(parentUrl, uri) {
     const mUrl = new URL(parentUrl)

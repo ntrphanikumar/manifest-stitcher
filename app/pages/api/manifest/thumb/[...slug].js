@@ -37,6 +37,10 @@ setInterval(() => {
 const action = async (req, res) => {
   try {
     const {manifestUrl, s3StorageKey, sec} = getManifestUrl(req)
+    if(manifestUrl === undefined) {
+      res.status(404).send('Not supported');
+      return;    
+    }
     console.log(manifestUrl, s3StorageKey, sec)
     const {segmentUrl, seekSecs} = await getThumbnailSegmentWithSeekSecs(manifestUrl, sec)
     const thumbnail_file = `${dir}/${TSH(segmentUrl)}_${sec}.jpg`
@@ -103,8 +107,10 @@ function getManifestUrl(req) {
       s3StorageKey: slug.slice(0, slug.length-3).concat(slug.slice(-1)[0]).join('/'),
       sec: parseInt(slug.slice(-1)[0].replace('.jpg', ''))
     }
+  } else {
+    console.log(new Date(), 'Non vod thumbnail request', slug)
+    return {}
   }
-  return {manifestUrl: 'https://videographond.akamaized.net/enc/80b46fbb-0e8a-4647-a9f4-9510840190bf/348fd6ca-d9fe-4c8a-8963-c779d73a7675/fst/44111/master.m3u8', sec: 4}
 }
 
 async function getThumbnailSegmentWithSeekSecs(manifestUrl, sec) {
