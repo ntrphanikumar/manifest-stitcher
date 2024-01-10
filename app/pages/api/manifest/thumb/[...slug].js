@@ -103,8 +103,14 @@ function getManifestUrl(req) {
   const { slug } = req.query
   if(slug[0] === process.env.THUMBNAIL_VOD_PREFIX) {
     return {
-      manifestUrl: [process.env.THUMBNAIL_VOD_MANIFEST_HOST].concat(slug.slice(0, slug.length-3)).concat([process.env.THUMBNAIL_VOD_MASTER_MANIFEST]).join('/'),
-      s3StorageKey: slug.slice(0, slug.length-3).concat(slug.slice(-1)[0]).join('/'),
+      manifestUrl: [process.env.THUMBNAIL_VOD_MANIFEST_HOST].concat(slug.slice(0, -3)).concat([process.env.THUMBNAIL_VOD_MASTER_MANIFEST]).join('/'),
+      s3StorageKey: slug.slice(0, -3).concat(slug.slice(-1)[0]).join('/'),
+      sec: parseInt(slug.slice(-1)[0].replace('.jpg', ''))
+    }
+  } else if(slug[1] === process.env.THUMBNAIL_VOD_PREFIX && slug[0].indexOf('x') > -1) {
+    return {
+      manifestUrl: [process.env.THUMBNAIL_VOD_MANIFEST_HOST].concat(slug.slice(1, -3)).concat([process.env.THUMBNAIL_VOD_MASTER_MANIFEST]).join('/'),
+      s3StorageKey: slug.slice(1, -3).concat(slug.slice(-1)[0]).join('/'),
       sec: parseInt(slug.slice(-1)[0].replace('.jpg', ''))
     }
   } else {
