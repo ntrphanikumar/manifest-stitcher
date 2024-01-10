@@ -36,12 +36,18 @@ setInterval(() => {
 
 const action = async (req, res) => {
   try {
-    const {manifestUrl, s3StorageKey, sec} = getManifestUrl(req)
-    if(manifestUrl === undefined) {
+    const {manifestUrl, s3StorageKey, sec, thumborUrl} = getManifestUrl(req)
+    console.log(manifestUrl, s3StorageKey, sec, thumborUrl)
+    if(thumborUrl !== undefined) {
+      await axios.get(thumborUrl).then(async response => {
+        response.pipe(res);
+        response.on("finish", res.end);
+      })
+      return;
+    } else if(manifestUrl === undefined) {
       res.status(404).send('Not supported');
       return;    
     }
-    console.log(manifestUrl, s3StorageKey, sec)
     const {segmentUrl, seekSecs} = await getThumbnailSegmentWithSeekSecs(manifestUrl, sec)
     const thumbnail_file = `${dir}/${TSH(segmentUrl)}_${sec}.jpg`
     const command = `rm ${thumbnail_file} | ffmpeg -i ${segmentUrl} -ss ${seekSecs} -frames:v 1 ${thumbnail_file}`
@@ -109,9 +115,7 @@ function getManifestUrl(req) {
     }
   } else if(slug[1] === process.env.THUMBNAIL_VOD_PREFIX && slug[0].indexOf('x') > -1) {
     return {
-      manifestUrl: [process.env.THUMBNAIL_VOD_MANIFEST_HOST].concat(slug.slice(1, -3)).concat([process.env.THUMBNAIL_VOD_MASTER_MANIFEST]).join('/'),
-      s3StorageKey: slug.slice(1, -3).concat(slug.slice(-1)[0]).join('/'),
-      sec: parseInt(slug.slice(-1)[0].replace('.jpg', ''))
+      thumborUrl: `http://thumbor:8888/unsafe/${slug[0]}/http://dashboard:3000/${slug.slice(1).join('/')}`
     }
   } else {
     console.log(new Date(), 'Non vod thumbnail request', slug)
