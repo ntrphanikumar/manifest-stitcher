@@ -39,9 +39,13 @@ const action = async (req, res) => {
     const {manifestUrl, s3StorageKey, sec, thumborUrl} = getManifestUrl(req)
     console.log(manifestUrl, s3StorageKey, sec, thumborUrl)
     if(thumborUrl !== undefined) {
-      await axios.get(thumborUrl).then(async response => {
-        response.pipe(res);
-        response.on("finish", res.end);
+      await axios.get(thumborUrl, {responseType: 'stream'}).then(async response => {
+        res.setHeader('Content-Type', 'image/jpeg');
+        response.data.pipe(res);
+        response.data.on("finish", res.end);
+      }).catch(function(e) {
+        console.log('Got error', e)
+        res.status(400).send('Bad request');
       })
       return;
     } else if(manifestUrl === undefined) {
@@ -115,7 +119,7 @@ function getManifestUrl(req) {
     }
   } else if(slug[1] === process.env.THUMBNAIL_VOD_PREFIX && slug[0].indexOf('x') > -1) {
     return {
-      thumborUrl: `http://thumbor:8888/unsafe/${slug[0]}/http://dashboard:3000/api/manifest/thumb/${slug.slice(1).join('/')}`
+      thumborUrl: `${process.env.THUMBOR_HOST}/unsafe/${slug[0]}/${process.env.THUMBNAIL_HOST}/manifest/thumb/${slug.slice(1).join('/')}`
     }
   } else {
     console.log(new Date(), 'Non vod thumbnail request', slug)

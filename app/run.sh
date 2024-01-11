@@ -13,6 +13,8 @@ echo THUMBNAIL_S3_BUCKET=$THUMBNAIL_S3_BUCKET >> .env.local
 echo THUMBNAIL_S3_REGION=$THUMBNAIL_S3_REGION >> .env.local
 echo THUMBNAIL_S3_ACCESS_KEY=$THUMBNAIL_S3_ACCESS_KEY >> .env.local
 echo THUMBNAIL_S3_SECRET_KEY=$THUMBNAIL_S3_SECRET_KEY >> .env.local
+echo THUMBOR_HOST=$THUMBOR_HOST >> .env.local
+echo THUMBNAIL_HOST=$THUMBNAIL_HOST >> .env.local
 
 npm run build
 npm run start
