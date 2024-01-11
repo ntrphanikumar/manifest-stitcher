@@ -32,7 +32,7 @@ export const action = async (req, res, getManifestUrl, dir) => {
         response.data.on("finish", ws.end)
         ws.on("close", () => uploadToS3AndSendResponse(thumbnail_file,s3StorageKey, res))
       }).catch(function(e) {
-        console.log('Got error', e)
+        console.log('Got error while fetching from thumbor', thumborUrl, 'Failed with status',error.response.status, error.response.data)
         res.status(400).send('Bad request');
       })
     } else if(manifestUrl === undefined) {
