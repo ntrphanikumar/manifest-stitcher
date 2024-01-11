@@ -7,12 +7,20 @@ const fs = require('fs');
 const dir = __dirname
 
 export default async (req, res) => {
-
+  const {playbackUrl} = req.body
+  if(playbackUrl !== undefined) {
+    const result = await resetSequence(playbackUrl)
+    res.status(200).json(result)
+  } else {
     const ec = errorContents()
+    res.status(400).json({message: 'Not supported now.'})
+  }
+
+    // const ec = errorContents()
     // console.log(ec)
 
-    const result  = await Promise.all(ec.map(async channel => await Promise.all(channel.result.map(async epgUrl => await channelManifests(channel.channel, 0,0, epgUrl)))))
-    res.status(200).send(result.flat(1).flat(1).map(url => new URL(url).pathname.substring(1)).join('\n'));
+    // const result  = await Promise.all(ec.map(async channel => await Promise.all(channel.result.map(async epgUrl => await channelManifests(channel.channel, 0,0, epgUrl)))))
+    // res.status(200).send(result.flat(1).flat(1).map(url => new URL(url).pathname.substring(1)).join('\n'));
 
     // ec.forEach(async (channel) => {
     //         console.log('Running for channel', channel.channel);
@@ -49,6 +57,48 @@ export default async (req, res) => {
     // res.status(200).json(ec);
 };
 
+async function resetSequence(playbackUrl) {
+  const epgResult = await channelResult('', 0, 0, playbackUrl)
+  console.log(epgResult)
+  const s3Keys = epgResult.map(anomaly => {
+    const items = anomaly.seq.map(seq => anomaly[seq + ''].forEach(function (r) {
+        r.seq = seq;
+        r.source = r.source.replace(`#EXT-X-MEDIA-SEQUENCE:${r.seq}`, `#EXT-X-MEDIA-SEQUENCE:1`);
+    }));
+    const res = anomaly.seq.map(seq => anomaly[seq + '']).flat(1);
+    return res.map(uploadToS3);
+  }).flat(1);
+  invalidateCloudFrontKeys(s3Keys)
+  return {message: "Reset complete", s3Keys: s3Keys}
+}
+
+import { CloudFrontClient, CreateInvalidationCommand } from "@aws-sdk/client-cloudfront";
+async function invalidateCloudFrontKeys(keys) {
+  const client = new CloudFrontClient({
+    credentials: {
+        accessKeyId: process.env.RESET_SEQ_S3_ACCESS_KEY,
+        secretAccessKey: process.env.RESET_SEQ_S3_SECRET_KEY
+    },
+    region: process.env.RESET_SEQ_S3_REGION
+});
+const pathsToInvalidate = keys.map(k => '/'+k)
+  const input = { // CreateInvalidationRequest
+  DistributionId: process.env.RESET_SEQ_CF_DISTRIBUTION,
+  InvalidationBatch: { // InvalidationBatch
+    Paths: { // Paths
+      Quantity: keys.length, // required
+      Items: pathsToInvalidate,
+    },
+    CallerReference: new Date().getTime().toString() // required
+  },
+};
+  const command = new CreateInvalidationCommand(input);
+  const response = await client.send(command);
+  console.log(response)
+}
+
+
+
 const { Upload } = require("@aws-sdk/lib-storage");
 const { S3Client, S3 } = require("@aws-sdk/client-s3");
 const s3Client = new S3Client({
@@ -75,6 +125,7 @@ function uploadToS3(item) {
       partSize: 1024 * 1024 * 5, // optional size of each part, in bytes, at least 5MB
       leavePartsOnError: false, // optional manually handle dropped parts
     }).done()
+    return key
   } catch(e) {
     console.log(`Failed to upload ${thumbnail_file} to s3`, e)
   }
