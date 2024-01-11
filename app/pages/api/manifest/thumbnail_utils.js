@@ -1,6 +1,8 @@
 import axios from 'axios';
 
-export const enableCors = fn => async (req, res) => {
+const { exec } = require("child_process");
+
+export const enableCors = fn => async (req, res, getManifestUrl, dir) => {
   res.setHeader('Access-Control-Allow-Credentials', true)
   res.setHeader('Access-Control-Allow-Origin', '*') // replace this your actual origin
   res.setHeader('Access-Control-Allow-Methods', 'GET,DELETE,PATCH,POST,PUT')
@@ -10,12 +12,51 @@ export const enableCors = fn => async (req, res) => {
     res.status(200).end()
     return
   }
-  return await fn(req, res)
+  return await fn(req, res, getManifestUrl, dir)
 }
 
 const fs = require('fs');
 
 export const TSH=s=>{for(var i=0,h=9;i<s.length;)h=Math.imul(h^s.charCodeAt(i++),9**9);return h^h>>>9}
+
+export const action = async (req, res, getManifestUrl, dir) => {
+  try {
+    const {manifestUrl, s3StorageKey, sec, thumborUrl} = getManifestUrl(req)
+    console.log(manifestUrl, s3StorageKey, sec, thumborUrl)
+    if(thumborUrl !== undefined) {
+      return await axios.get(thumborUrl, {responseType: 'stream'}).then(async response => {
+        const thumbnail_file = `${dir}/${TSH(s3StorageKey)}.jpg`
+        console.log('Wiring to image', thumbnail_file)
+        const ws = fs.createWriteStream(thumbnail_file)
+        response.data.pipe(ws)
+        response.data.on("finish", ws.end)
+        ws.on("close", () => uploadToS3AndSendResponse(thumbnail_file,s3StorageKey, res))
+      }).catch(function(e) {
+        console.log('Got error', e)
+        res.status(400).send('Bad request');
+      })
+    } else if(manifestUrl === undefined) {
+      res.status(404).send('Not supported');
+      return;
+    }
+    const {segmentUrl, seekSecs} = await getThumbnailSegmentWithSeekSecs(manifestUrl, sec)
+    const thumbnail_file = `${dir}/${TSH(segmentUrl)}_${sec}.jpg`
+    const command = `rm ${thumbnail_file} | ffmpeg -i ${segmentUrl} -ss ${seekSecs} -frames:v 1 ${thumbnail_file}`
+    exec(command, (error, stderr, stdout) => {
+      try {
+        if (error)  throw error
+        else if (stderr) throw stderr
+        else uploadToS3AndSendResponse(thumbnail_file,s3StorageKey, res)
+      } catch( error) {
+        console.log(error)
+        res.status(404).send('Not found');    
+      }
+    })
+  } catch (error) {
+    console.log(error)
+    res.status(404).send('Not found');
+  }
+}
 
 export function uploadToS3AndSendResponse(thumbnail_file, s3StorageKey, res) {
   uploadToS3(thumbnail_file, s3StorageKey)
