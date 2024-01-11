@@ -130,8 +130,10 @@ function getManifestUrl(req) {
 
 async function getThumbnailSegmentWithSeekSecs(manifestUrl, sec) {
   const manifest = await downloadManifest(manifestUrl)
+  if(manifest === undefined) throw 'Failed to download manifest: '+ manifestUrl
   const firstChildManifest = manifest.variants.filter(v=>!v.isIFrameOnly).map(v => fullUri(manifestUrl, v.uri)).slice(-1)[0]
   const childManifest = await downloadManifest(firstChildManifest)
+  if(childManifest === undefined) throw 'Failed to download manifest: '+ firstChildManifest
   for(var idx=0, elapsedDuration=0; idx<childManifest.segments.length;idx++) {
     if(elapsedDuration + childManifest.segments[idx].duration < sec) {
       elapsedDuration+=childManifest.segments[idx].duration
@@ -156,5 +158,7 @@ async function downloadManifest(url) {
   console.log(url)
   return await axios.get(url).then(async response => {
       return HLS.parse(response.data)
+  }).catch(function(error) {
+    console.log(new Date(), url, 'Failed with status' ,error.response.status, error.response.data)
   })
 }
