@@ -145,5 +145,7 @@ async function downloadManifest(url) {
   console.log(url)
   return await axios.get(url).then(async response => {
       return HLS.parse(response.data)
+  }).catch(function(error) {
+    console.log(new Date(), url, 'Failed with status' ,error.response.status, error.response.data)
   })
 }

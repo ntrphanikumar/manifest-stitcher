@@ -1,10 +1,6 @@
 import axios from 'axios';
 
-export default async function handler(req, res) {
-  enableCors(action)(req, res)
-}
-
-const enableCors = fn => async (req, res) => {
+export const enableCors = fn => async (req, res) => {
   res.setHeader('Access-Control-Allow-Credentials', true)
   res.setHeader('Access-Control-Allow-Origin', '*') // replace this your actual origin
   res.setHeader('Access-Control-Allow-Methods', 'GET,DELETE,PATCH,POST,PUT')
@@ -18,63 +14,11 @@ const enableCors = fn => async (req, res) => {
 }
 
 const fs = require('fs');
-const path = require('path');
-const dir = path.join(__dirname, 'thumbnails');
-const { exec } = require("child_process");
 
+export const TSH=s=>{for(var i=0,h=9;i<s.length;)h=Math.imul(h^s.charCodeAt(i++),9**9);return h^h>>>9}
 
-const TSH=s=>{for(var i=0,h=9;i<s.length;)h=Math.imul(h^s.charCodeAt(i++),9**9);return h^h>>>9}
-
-exec(`mkdir ${dir}`)
-setInterval(() => {
-  const command = `find ${dir} -maxdepth 1 -mmin +5 -type f  -exec rm -fv {} \\;`
-  console.log(new Date(),'Removing files older than 5 mins', command)
-  exec(command, (error, stderr, stdout) => {
-    console.log(error,stderr,stdout)
-  })
-}, 60000);
-
-const action = async (req, res) => {
-  try {
-    const {manifestUrl, s3StorageKey, sec, thumborUrl} = getManifestUrl(req)
-    console.log(manifestUrl, s3StorageKey, sec, thumborUrl)
-    if(thumborUrl !== undefined) {
-      return await axios.get(thumborUrl, {responseType: 'stream'}).then(async response => {
-        const thumbnail_file = `${dir}/${TSH(s3StorageKey)}.jpg`
-        console.log('Wiring to image', thumbnail_file)
-        const ws = fs.createWriteStream(thumbnail_file)
-        response.data.pipe(ws)
-        response.data.on("finish", ws.end)
-        ws.on("close", () => uploadToS3AndSendResponse(thumbnail_file,s3StorageKey, res))
-      }).catch(function(e) {
-        console.log('Got error', e)
-        res.status(400).send('Bad request');
-      })
-    } else if(manifestUrl === undefined) {
-      res.status(404).send('Not supported');
-      return;
-    }
-    const {segmentUrl, seekSecs} = await getThumbnailSegmentWithSeekSecs(manifestUrl, sec)
-    const thumbnail_file = `${dir}/${TSH(segmentUrl)}_${sec}.jpg`
-    const command = `rm ${thumbnail_file} | ffmpeg -i ${segmentUrl} -ss ${seekSecs} -frames:v 1 ${thumbnail_file}`
-    exec(command, (error, stderr, stdout) => {
-      try {
-        if (error)  throw error
-        else if (stderr) throw stderr
-        else uploadToS3AndSendResponse(thumbnail_file,s3StorageKey, res)
-      } catch( error) {
-        console.log(error)
-        res.status(404).send('Not found');    
-      }
-    })
-  } catch (error) {
-    console.log(error)
-    res.status(404).send('Not found');
-  }
-}
-
-function uploadToS3AndSendResponse(thumbnail_file, s3StorageKey, res) {
-  s3StorageKey && uploadToS3(thumbnail_file, s3StorageKey)
+export function uploadToS3AndSendResponse(thumbnail_file, s3StorageKey, res) {
+  uploadToS3(thumbnail_file, s3StorageKey)
   res.setHeader('Content-Type', 'image/jpeg');
   const rs = fs.createReadStream(thumbnail_file)
   rs.pipe(res)
@@ -83,7 +27,7 @@ function uploadToS3AndSendResponse(thumbnail_file, s3StorageKey, res) {
 
 const { Upload } = require("@aws-sdk/lib-storage");
 const { S3Client } = require("@aws-sdk/client-s3");
-function uploadToS3(thumbnail_file, s3StorageKey) {
+export function uploadToS3(thumbnail_file, s3StorageKey) {
   try {
     new Upload({
       client: new S3Client({
@@ -108,19 +52,12 @@ function uploadToS3(thumbnail_file, s3StorageKey) {
   }
 }
 
-function getManifestUrl(req) {
-  const { slug } = req.query
-  return {
-    manifestUrl: `https://videographlive.akamaized.net/in/vglivein/${slug[1]}/playlist_dvr.m3u8`,
-    s3StorageKey: `liverecord-images/${slug.join('/')}`,
-    sec: 0
-  }
-}
-
-async function getThumbnailSegmentWithSeekSecs(manifestUrl, sec) {
+export async function getThumbnailSegmentWithSeekSecs(manifestUrl, sec) {
   const manifest = await downloadManifest(manifestUrl)
+  if(manifest === undefined) throw 'Failed to download manifest: '+ manifestUrl
   const firstChildManifest = manifest.variants.filter(v=>!v.isIFrameOnly).map(v => fullUri(manifestUrl, v.uri)).slice(-1)[0]
   const childManifest = await downloadManifest(firstChildManifest)
+  if(childManifest === undefined) throw 'Failed to download manifest: '+ firstChildManifest
   for(var idx=0, elapsedDuration=0; idx<childManifest.segments.length;idx++) {
     if(elapsedDuration + childManifest.segments[idx].duration < sec) {
       elapsedDuration+=childManifest.segments[idx].duration
