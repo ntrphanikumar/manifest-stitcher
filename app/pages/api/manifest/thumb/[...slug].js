@@ -39,18 +39,20 @@ const action = async (req, res) => {
     const {manifestUrl, s3StorageKey, sec, thumborUrl} = getManifestUrl(req)
     console.log(manifestUrl, s3StorageKey, sec, thumborUrl)
     if(thumborUrl !== undefined) {
-      await axios.get(thumborUrl, {responseType: 'stream'}).then(async response => {
-        res.setHeader('Content-Type', 'image/jpeg');
-        response.data.pipe(res);
-        response.data.on("finish", res.end);
+      return await axios.get(thumborUrl, {responseType: 'stream'}).then(async response => {
+        const thumbnail_file = `${dir}/${TSH(s3StorageKey)}.jpg`
+        console.log('Wiring to image', thumbnail_file)
+        const ws = fs.createWriteStream(thumbnail_file)
+        response.data.pipe(ws)
+        response.data.on("finish", ws.end)
+        ws.on("close", () => uploadToS3AndSendResponse(thumbnail_file,s3StorageKey, res))
       }).catch(function(e) {
         console.log('Got error', e)
         res.status(400).send('Bad request');
       })
-      return;
     } else if(manifestUrl === undefined) {
       res.status(404).send('Not supported');
-      return;    
+      return;
     }
     const {segmentUrl, seekSecs} = await getThumbnailSegmentWithSeekSecs(manifestUrl, sec)
     const thumbnail_file = `${dir}/${TSH(segmentUrl)}_${sec}.jpg`
@@ -59,18 +61,7 @@ const action = async (req, res) => {
       try {
         if (error)  throw error
         else if (stderr) throw stderr
-        else {
-          uploadToS3(thumbnail_file, s3StorageKey)
-          const s = fs.createReadStream(thumbnail_file);
-          s.on('open', function () {
-              res.setHeader('Content-Type', 'image/jpeg');
-              s.pipe(res);
-          });
-          s.on('error', function(e) {
-            console.log('Got error')
-            res.status(404).send('Got error');    
-          })
-        }
+        else uploadToS3AndSendResponse(thumbnail_file,s3StorageKey, res)
       } catch( error) {
         console.log(error)
         res.status(404).send('Not found');    
@@ -82,8 +73,16 @@ const action = async (req, res) => {
   }
 }
 
+function uploadToS3AndSendResponse(thumbnail_file, s3StorageKey, res) {
+  uploadToS3(thumbnail_file, s3StorageKey)
+  res.setHeader('Content-Type', 'image/jpeg');
+  const rs = fs.createReadStream(thumbnail_file)
+  rs.pipe(res)
+  rs.on("finish", res.end)
+}
+
 const { Upload } = require("@aws-sdk/lib-storage");
-const { S3Client, S3, ListBucketInventoryConfigurationsOutputFilterSensitiveLog } = require("@aws-sdk/client-s3");
+const { S3Client } = require("@aws-sdk/client-s3");
 function uploadToS3(thumbnail_file, s3StorageKey) {
   try {
     new Upload({
@@ -114,12 +113,14 @@ function getManifestUrl(req) {
   if(slug[0] === process.env.THUMBNAIL_VOD_PREFIX) {
     return {
       manifestUrl: [process.env.THUMBNAIL_VOD_MANIFEST_HOST].concat(slug.slice(0, -3)).concat([process.env.THUMBNAIL_VOD_MASTER_MANIFEST]).join('/'),
-      s3StorageKey: slug.slice(0, -3).concat(slug.slice(-1)[0]).join('/'),
+      // s3StorageKey: slug.slice(0, -3).concat(slug.slice(-1)[0]).join('/'),
+      s3StorageKey: slug.join('/'),
       sec: parseInt(slug.slice(-1)[0].replace('.jpg', ''))
     }
   } else if(slug[1] === process.env.THUMBNAIL_VOD_PREFIX && slug[0].indexOf('x') > -1) {
     return {
-      thumborUrl: `${process.env.THUMBOR_HOST}/unsafe/${slug[0]}/${process.env.THUMBNAIL_HOST}/manifest/thumb/${slug.slice(1).join('/')}`
+      thumborUrl: `${process.env.THUMBOR_HOST}/unsafe/${slug[0]}/${process.env.THUMBNAIL_HOST}/manifest/thumb/${slug.slice(1).join('/')}`,
+      s3StorageKey: slug.join('/')
     }
   } else {
     console.log(new Date(), 'Non vod thumbnail request', slug)
