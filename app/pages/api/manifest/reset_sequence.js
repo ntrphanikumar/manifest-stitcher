@@ -69,10 +69,10 @@ async function resetSequence(playbackUrl) {
   }).flat(1);
   if(s3Keys.length > 0){
     invalidateCloudFrontKeys(s3Keys)
+    const message = s3Keys.length > 0 ? ('Reset media sequence done for url: '+playbackUrl): ('No media sequence issue observed for url: '+ playbackUrl)
+    process.env.RESET_SEQ_NOTIFICATION_WEBHOOK && axios.post(process.env.RESET_SEQ_NOTIFICATION_WEBHOOK, JSON.stringify({text: message}), {headers: {'Content-Type': 'application/json'}})
+          .catch(error => {console.log(error.message, message)})
   }
-  const message = s3Keys.length > 0 ? ('Reset media sequence done for url: '+playbackUrl): ('No media sequence issue observed for url: '+ playbackUrl)
-  process.env.RESET_SEQ_NOTIFICATION_WEBHOOK && axios.post(process.env.RESET_SEQ_NOTIFICATION_WEBHOOK, JSON.stringify({text: message}), {headers: {'Content-Type': 'application/json'}})
-        .catch(error => {console.log(error.message, message)})
   return {message: "Reset complete", s3Keys: s3Keys}
 }
 
