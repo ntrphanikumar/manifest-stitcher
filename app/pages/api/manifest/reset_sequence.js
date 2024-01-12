@@ -59,7 +59,6 @@ export default async (req, res) => {
 
 async function resetSequence(playbackUrl) {
   const epgResult = await channelResult('', 0, 0, playbackUrl)
-  console.log(epgResult)
   const s3Keys = epgResult.map(anomaly => {
     const items = anomaly.seq.map(seq => anomaly[seq + ''].forEach(function (r) {
         r.seq = seq;
@@ -68,7 +67,12 @@ async function resetSequence(playbackUrl) {
     const res = anomaly.seq.map(seq => anomaly[seq + '']).flat(1);
     return res.map(uploadToS3);
   }).flat(1);
-  invalidateCloudFrontKeys(s3Keys)
+  if(s3Keys.length > 0){
+    invalidateCloudFrontKeys(s3Keys)
+  }
+  const message = s3Keys.length > 0 ? ('Reset media sequence done for url: '+playbackUrl): ('No media sequence issue observed for url: '+ playbackUrl)
+  process.env.RESET_SEQ_NOTIFICATION_WEBHOOK && axios.post(process.env.RESET_SEQ_NOTIFICATION_WEBHOOK, JSON.stringify({text: message}), {headers: {'Content-Type': 'application/json'}})
+        .catch(error => {console.log(error.message, message)})
   return {message: "Reset complete", s3Keys: s3Keys}
 }
 
