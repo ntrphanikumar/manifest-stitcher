@@ -78,7 +78,9 @@ async function resetSequence(playbackUrl) {
     process.env.RESET_SEQ_NOTIFICATION_WEBHOOK && axios.post(process.env.RESET_SEQ_NOTIFICATION_WEBHOOK, JSON.stringify({text: message}), {headers: {'Content-Type': 'application/json'}})
           .catch(error => {console.log(error.message, message)})
   }
-  return {message: "Reset complete", s3Keys: s3Keys}
+  const result = {message: "Reset complete", s3Keys: s3Keys}
+  console.log(new Date(), playbackUrl, result)
+  return result
 }
 
 import { CloudFrontClient, CreateInvalidationCommand } from "@aws-sdk/client-cloudfront";
