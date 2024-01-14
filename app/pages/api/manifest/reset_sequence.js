@@ -7,10 +7,14 @@ const fs = require('fs');
 const dir = __dirname
 
 export default async (req, res) => {
-  const {playbackUrl} = req.body
+  const {playbackUrl, sync} = req.body
   if(playbackUrl !== undefined) {
-    const result = await resetSequence(playbackUrl)
-    res.status(200).json(result)
+    if(sync !== undefined && sync === 'true') {
+      const result = await resetSequence(playbackUrl)
+      res.status(200).json(result)
+    } else {
+      res.status(200).json({message: "Invoked async"})
+    } 
   } else {
     const ec = errorContents()
     res.status(400).json({message: 'Not supported now.'})
