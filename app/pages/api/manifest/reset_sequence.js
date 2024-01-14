@@ -13,6 +13,7 @@ export default async (req, res) => {
       const result = await resetSequence(playbackUrl)
       res.status(200).json(result)
     } else {
+      resetSequence(playbackUrl)
       res.status(200).json({message: "Invoked async"})
     } 
   } else {
