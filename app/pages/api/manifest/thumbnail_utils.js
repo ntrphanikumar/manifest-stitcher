@@ -32,7 +32,7 @@ export const action = async (req, res, getManifestUrl, dir) => {
         response.data.on("finish", ws.end)
         ws.on("close", () => uploadToS3AndSendResponse(thumbnail_file,s3StorageKey, res))
       }).catch(function(e) {
-        console.log('Got error while fetching from thumbor', thumborUrl, 'Failed with status',e.response.status, e.response.data)
+        console.log('Got error while fetching from thumbor', thumborUrl, 'Failed with status',e.response.status, e.response.statusMessage)
         res.status(400).send('Bad request');
       })
     } else if(manifestUrl === undefined) {
@@ -124,6 +124,6 @@ async function downloadManifest(url) {
   return await axios.get(url).then(async response => {
       return HLS.parse(response.data)
   }).catch(function(error) {
-    console.log(new Date(), url, 'Failed with status' ,error.response.status, error.response.data)
+    console.log(new Date(), url, 'Failed with status' ,error.response.status, error.response.statusMessage)
   })
 }
