@@ -47,7 +47,7 @@ const action = async (req, res) => {
     };
     const command = new QueryCommand(params);
     const response = await client.send(command);
-    const elements = response.Items.map(e => '#EXTINF:'+e.duration.N+',\n'+process.env.DVR_HOST+'/'+e.storage_path.S+'\n#EXT-X-DISCONTINUITY');
+    const elements = response.Items.map(e => '#EXTINF:'+e.duration.N+',\n'+process.env.DVR_HOST+'/'+e.storage_path.S);
 
     res.status(200).send([ManifestPrefix].concat(elements).concat([ManifestSuffix]).join('\n'))
   } catch (error) {

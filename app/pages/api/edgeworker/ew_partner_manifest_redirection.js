@@ -134,7 +134,6 @@ function attatchPrefixes(playlistObj, request, originUrl) {
   const normalPathPrefix = "/"+originUrl.split("?")[0].split("://")[1].split("/").slice(0,-1).slice(1).join("/")
   const attachCustomParams = function(url) {
     const isManifest = url.includes('.m3u8')
-    if(!isManifest && originUrl.indexOf("ads.title=Shemaroo_Bollywood&ads.partner=distrotv") === -1) return attachCustomParamsAsQueryOnly(url)
     if(isManifest === true) {
       if(url.startsWith('../')) return url
       if(url.startsWith("/")) return pathPrefix + url
@@ -145,7 +144,12 @@ function attatchPrefixes(playlistObj, request, originUrl) {
       }
       return url
     } else {
-      if(url.startsWith('../')) return dotsPrefix + url + (url.indexOf('?')> -1 ? '&' : '?') + queryPrefix
+      if(url.startsWith('../')) {
+        const urlSplit = originUrl.split('?')[0].split("://")[1].split('/').slice(0, -1).slice(1)
+        const routedSplit = url.split('/').map(e => e.split("?")[0])
+        routedSplit.filter(e => e==='..').forEach(e => urlSplit.pop())
+        return "/" + urlSplit.concat(routedSplit.filter(e => e!="..")).join("/") + (url.indexOf('?')> -1 ? '&' : '?') + queryPrefix
+      }
       if(url.startsWith("/")) return url + (url.indexOf('?')> -1 ? '&' : '?') + queryPrefix
       if(url.startsWith('http')) return url + (url.indexOf('?')> -1 ? '&' : '?') + queryPrefix
       return normalPathPrefix + '/' + url + (url.indexOf('?')> -1 ? '&' : '?') + queryPrefix
