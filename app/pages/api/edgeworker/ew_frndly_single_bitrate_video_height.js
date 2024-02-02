@@ -1,7 +1,7 @@
 // Import logging module
 import { HLS } from './hls.js';
-import { httpRequest } from 'http-request';
-import { createResponse } from 'create-response';
+// import { httpRequest } from 'http-request';
+// import { createResponse } from 'create-response';
 
 export async function responseProvider (request) {
   const response = await httpRequest(request.url, {headers: getSafeResponseHeaders(request.getHeaders())});
