@@ -22,7 +22,7 @@ jobs:
     - name: Docker Build Fast
       run: docker build fast/. --file Dockerfile --tag ntrphanikumar/manifest-stitcher:1.0.0 --tag ntrphanikumar/manifest-stitcher:1.0.0.$(date '+%Y%m%d')
     - name: Docker Build Warmer
-      run: docker build warmer/. --file Dockerfile --tag ntrphanikumar/manifest-stitcher:1.0.0 --tag ntrphanikumar/manifest-stitcher:1.0.0.$(date '+%Y%m%d')
+      run: docker build warmer/. --file Dockerfile --tag ntrphanikumar/manifest-warmer:1.0.0 --tag ntrphanikumar/manifest-warmer:1.0.0.$(date '+%Y%m%d')
     - name: Docker Push Fast
       run: docker push ntrphanikumar/manifest-stitcher --all-tags
     - name: Docker Push Warmer
