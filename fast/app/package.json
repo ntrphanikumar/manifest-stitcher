@@ -19,6 +19,7 @@
     "form-data": "^4.0.0",
     "hls-parser": "0.10.8",
     "next": "^12.1.0",
+    "node-sprite-generator": "^0.10.2",
     "use-force-update": "^1.0.7"
   },
   "devDependencies": {
